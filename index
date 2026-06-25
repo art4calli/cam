@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ملتقط الوسائط للطلاب 📸🎙️</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Cairo', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex flex-col justify-between p-4">
+  <div class="max-w-md mx-auto w-full bg-slate-800 rounded-3xl p-6 shadow-2xl border border-slate-700/50 flex-grow flex flex-col justify-between">
+    
+    <!-- Header -->
+    <div class="text-center mb-4">
+      <h1 id="title" class="text-xl font-bold text-amber-400">ملتقط الوسائط</h1>
+      <p id="status" class="text-xs text-slate-400 mt-1">برجاء السماح بصلاحيات الكاميرا/المايك</p>
+    </div>
+
+    <!-- Active Area -->
+    <div class="relative bg-slate-950 rounded-2xl overflow-hidden aspect-video flex items-center justify-center border border-slate-900 mb-4">
+      <!-- Camera View -->
+      <video id="video" autoplay playsinline class="w-full h-full object-cover hidden"></video>
+      
+      <!-- Audio Wave/Visualizer -->
+      <div id="audioWave" class="hidden flex items-center gap-1.5 h-16">
+        <span class="w-2.5 h-6 bg-red-500 rounded-full animate-bounce"></span>
+        <span class="w-2.5 h-10 bg-red-500 rounded-full animate-bounce" style="animation-delay: 0.15s"></span>
+        <span class="w-2.5 h-14 bg-red-500 rounded-full animate-bounce" style="animation-delay: 0.3s"></span>
+        <span class="w-2.5 h-8 bg-red-500 rounded-full animate-bounce" style="animation-delay: 0.45s"></span>
+        <span class="w-2.5 h-5 bg-red-500 rounded-full animate-bounce" style="animation-delay: 0.6s"></span>
+      </div>
+      
+      <!-- Placeholder -->
+      <div id="placeholder" class="text-slate-500 flex flex-col items-center">
+        <svg class="w-12 h-12 mb-2 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+        </svg>
+        <span class="text-sm">جاري تشغيل الجهاز...</span>
+      </div>
+      
+      <!-- Canvas for image capture -->
+      <canvas id="canvas" class="hidden"></canvas>
+    </div>
+
+    <!-- Controls -->
+    <div class="space-y-3">
+      <!-- Camera capture button -->
+      <button id="captureBtn" class="w-full bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-955 font-bold py-3.5 px-4 rounded-xl transition-all hidden flex items-center justify-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+        </svg>
+        <span>التقاط وإرسال الصورة 📸</span>
+      </button>
+
+      <!-- Mic Controls -->
+      <div id="micControls" class="hidden space-y-3">
+        <button id="recordBtn" class="w-full bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold py-3.5 px-4 rounded-xl transition-all flex items-center justify-center gap-2">
+          <span class="w-3 h-3 bg-white rounded-full animate-ping"></span>
+          <span>ابدأ تسجيل الواجب الصوتي 🎙️</span>
+        </button>
+        <div id="recordingTimer" class="text-center text-red-500 font-bold hidden text-sm">
+          جاري التسجيل: <span id="timerSec">00</span> ثانية
+        </div>
+        <button id="stopRecordBtn" class="w-full bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 font-bold py-3.5 px-4 rounded-xl transition-all hidden flex items-center justify-center gap-2">
+          <span>إيقاف التسجيل وإرسال ⏹️</span>
+        </button>
+      </div>
+      
+      <!-- Close Button -->
+      <button onclick="window.close()" class="w-full bg-slate-700 hover:bg-slate-600 text-slate-300 font-medium py-2.5 rounded-xl text-sm transition-all">
+        إلغاء وإغلاق النافذة
+      </button>
+    </div>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const mode = urlParams.get('mode') || 'camera'; // 'camera' or 'mic'
+    const word = urlParams.get('word') || 'word';
+
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const placeholder = document.getElementById('placeholder');
+    const audioWave = document.getElementById('audioWave');
+    const statusText = document.getElementById('status');
+    const titleText = document.getElementById('title');
+    
+    const captureBtn = document.getElementById('captureBtn');
+    const micControls = document.getElementById('micControls');
+    const recordBtn = document.getElementById('recordBtn');
+    const stopRecordBtn = document.getElementById('stopRecordBtn');
+    const recordingTimer = document.getElementById('recordingTimer');
+    const timerSec = document.getElementById('timerSec');
+
+    let localStream = null;
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let timerInterval = null;
+    let seconds = 0;
+
+    // 1. Initialize Media
+    if (mode === 'camera') {
+      titleText.innerText = 'التقاط الصورة للواجب 📸';
+      statusText.innerText = 'برجاء الابتسام للكاميرا والتقاط الصورة';
+      
+      navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } },
+        audio: false
+      })
+      .then(stream => {
+        localStream = stream;
+        video.srcObject = stream;
+        video.classList.remove('hidden');
+        placeholder.classList.add('hidden');
+        captureBtn.classList.remove('hidden');
+        statusText.innerText = 'الكاميرا نشطة الآن';
+      })
+      .catch(err => {
+        console.error(err);
+        statusText.innerText = 'خطأ: لم نتمكن من تشغيل الكاميرا. تأكد من تفعيل الأذونات.';
+        statusText.classList.add('text-red-400');
+      });
+    } else {
+      titleText.innerText = 'تسجيل الواجب الصوتي 🎙️';
+      statusText.innerText = 'برجاء الضغط على الزر الأحمر لبدء التسجيل';
+      placeholder.innerHTML = `
+        <svg class="w-12 h-12 mb-2 text-red-500 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+        <span class="text-sm">الميكروفون مستعد للبدء</span>
+      `;
+      
+      navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+      .then(stream => {
+        localStream = stream;
+        placeholder.classList.remove('hidden');
+        micControls.classList.remove('hidden');
+        statusText.innerText = 'الميكروفون نشط الآن';
+      })
+      .catch(err => {
+        console.error(err);
+        statusText.innerText = 'خطأ: لم نتمكن من تشغيل الميكروفون. تأكد من تفعيل الأذونات.';
+        statusText.classList.add('text-red-400');
+      });
+    }
+
+    // 2. Capture Image Handler
+    captureBtn.onclick = () => {
+      const context = canvas.getContext('2d');
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      const base64 = canvas.toDataURL('image/jpeg', 0.85); // base64 representation
+      
+      // Send back to the parent window
+      window.opener.postMessage({
+        type: 'MEDIA_CAPTURED',
+        mediaType: 'image',
+        base64: base64.split(',')[1], // raw base64 without prefix
+        mimeType: 'image/jpeg',
+        word: word
+      }, '*');
+
+      statusText.innerText = 'تم التقاط الصورة بنجاح! جاري الإغلاق...';
+      captureBtn.disabled = true;
+      
+      // Stop stream and close window
+      stopAllMedia();
+      setTimeout(() => window.close(), 1000);
+    };
+
+    // 3. Audio Recording Handlers
+    recordBtn.onclick = () => {
+      audioChunks = [];
+      mediaRecorder = new MediaRecorder(localStream, { mimeType: 'audio/webm' });
+      mediaRecorder.ondataavailable = e => {
+        if (e.data.size > 0) audioChunks.push(e.data);
+      };
+      
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = () => {
+          const base64 = reader.result;
+          
+          window.opener.postMessage({
+            type: 'MEDIA_CAPTURED',
+            mediaType: 'audio',
+            base64: base64.split(',')[1], // raw base64 without prefix
+            mimeType: 'audio/webm',
+            word: word
+          }, '*');
+
+          statusText.innerText = 'تم تسجيل الصوت بنجاح! جاري الإغلاق...';
+          stopAllMedia();
+          setTimeout(() => window.close(), 1000);
+        };
+      };
+
+      mediaRecorder.start();
+      
+      // UI Updates
+      recordBtn.classList.add('hidden');
+      stopRecordBtn.classList.remove('hidden');
+      recordingTimer.classList.remove('hidden');
+      audioWave.classList.remove('hidden');
+      placeholder.classList.add('hidden');
+      statusText.innerText = 'جاري التسجيل الآن... تحدث بصوت واضح';
+
+      // Start Timer
+      seconds = 0;
+      timerSec.innerText = '00';
+      timerInterval = setInterval(() => {
+        seconds++;
+        timerSec.innerText = seconds < 10 ? '0' + seconds : seconds;
+      }, 1000);
+    };
+
+    stopRecordBtn.onclick = () => {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+        clearInterval(timerInterval);
+        stopRecordBtn.disabled = true;
+        statusText.innerText = 'جاري ضغط ومعالجة الصوت...';
+      }
+    };
+
+    function stopAllMedia() {
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+      }
+    }
+  </script>
+</body>
+</html>
