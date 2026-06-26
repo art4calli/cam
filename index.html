@@ -81,6 +81,8 @@
     const urlParams = new URLSearchParams(window.location.search);
     const mode = urlParams.get('mode') || 'camera'; // 'camera' or 'mic'
     const word = urlParams.get('word') || 'word';
+    const username = urlParams.get('username') || '';
+    const sheetNumber = urlParams.get('sheetNumber') || '';
 
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
@@ -153,6 +155,49 @@
       canvas.height = video.videoHeight || 480;
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       
+      // إضافة شريط ذكي وتوقيع مائي ببيانات الطالب وتوقيت الإرسال تلقائياً على الصورة
+      try {
+        const bannerHeight = Math.max(45, Math.floor(canvas.height * 0.1));
+        const fontSize = Math.max(13, Math.floor(bannerHeight * 0.3));
+        
+        // رسم شريط خلفية داكن شبه شفاف في أسفل الصورة
+        context.fillStyle = "rgba(0, 0, 0, 0.65)";
+        context.fillRect(0, canvas.height - bannerHeight, canvas.width, bannerHeight);
+        
+        // إعدادات الخط والاتجاه العربي
+        context.fillStyle = "#FFFFFF";
+        context.font = "bold " + fontSize + "px 'Inter', system-ui, -apple-system, sans-serif";
+        context.textAlign = "right";
+        context.textBaseline = "middle";
+        context.direction = "rtl";
+        
+        // تجهيز التوقيت بتنسيق محلي عربي جميل
+        let dateTimeStr = "";
+        try {
+          dateTimeStr = new Date().toLocaleString('ar-EG', {
+            year: 'numeric',
+            month: 'numeric',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+        } catch (e) {
+          dateTimeStr = new Date().toISOString().replace('T', ' ').slice(0, 16);
+        }
+        
+        const cleanUser = username || "طالب";
+        const cleanSheet = sheetNumber || "1";
+        const cleanWord = word || "واجب";
+        
+        // نص التوقيع المائي المدمج
+        const overlayText = "الطالب: " + cleanUser + " | صف: " + cleanSheet + " | الكلمة: " + cleanWord + " | " + dateTimeStr;
+        
+        // طباعة النص داخل الشريط مع هامش آمن من اليمين
+        context.fillText(overlayText, canvas.width - 20, canvas.height - (bannerHeight / 2));
+      } catch (err) {
+        console.error("فشل دمج النص المائي بالصورة:", err);
+      }
+      
       const base64 = canvas.toDataURL('image/jpeg', 0.85); // base64 representation
       
       // Send back to the parent window
@@ -161,7 +206,9 @@
         mediaType: 'image',
         base64: base64.split(',')[1], // raw base64 without prefix
         mimeType: 'image/jpeg',
-        word: word
+        word: word,
+        username: username,
+        sheetNumber: sheetNumber
       }, '*');
 
       statusText.innerText = 'تم التقاط الصورة بنجاح! جاري الإغلاق...';
@@ -175,13 +222,31 @@
     // 3. Audio Recording Handlers
     recordBtn.onclick = () => {
       audioChunks = [];
-      mediaRecorder = new MediaRecorder(localStream, { mimeType: 'audio/webm' });
+      let options = {};
+      if (typeof MediaRecorder.isTypeSupported === 'function') {
+        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+          options = { mimeType: 'audio/webm;codecs=opus' };
+        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+          options = { mimeType: 'audio/webm' };
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          options = { mimeType: 'audio/mp4' };
+        } else if (MediaRecorder.isTypeSupported('audio/aac')) {
+          options = { mimeType: 'audio/aac' };
+        }
+      }
+      try {
+        mediaRecorder = new MediaRecorder(localStream, options);
+      } catch (e) {
+        mediaRecorder = new MediaRecorder(localStream);
+      }
+
       mediaRecorder.ondataavailable = e => {
         if (e.data.size > 0) audioChunks.push(e.data);
       };
       
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        const mimeType = mediaRecorder.mimeType || 'audio/webm';
+        const audioBlob = new Blob(audioChunks, { type: mimeType });
         const reader = new FileReader();
         reader.readAsDataURL(audioBlob);
         reader.onloadend = () => {
@@ -191,8 +256,10 @@
             type: 'MEDIA_CAPTURED',
             mediaType: 'audio',
             base64: base64.split(',')[1], // raw base64 without prefix
-            mimeType: 'audio/webm',
-            word: word
+            mimeType: mimeType,
+            word: word,
+            username: username,
+            sheetNumber: sheetNumber
           }, '*');
 
           statusText.innerText = 'تم تسجيل الصوت بنجاح! جاري الإغلاق...';
