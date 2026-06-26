@@ -189,8 +189,8 @@
         const cleanSheet = sheetNumber || "1";
         const cleanWord = word || "واجب";
         
-        // نص التوقيع المائي المدمج
-        const overlayText = "الطالب: " + cleanUser + " | صف: " + cleanSheet + " | الكلمة: " + cleanWord + " | " + dateTimeStr;
+        // نص التوقيع المائي المدمج (اسم الطالب مباشرة يليه رقم الطالب/الشيت يليه الدرس يليه التاريخ)
+        const overlayText = cleanUser + " - " + cleanSheet + " - " + cleanWord + " - " + dateTimeStr;
         
         // طباعة النص داخل الشريط مع هامش آمن من اليمين
         context.fillText(overlayText, canvas.width - 20, canvas.height - (bannerHeight / 2));
