@@ -129,10 +129,7 @@
     } else {
       titleText.innerText = 'تسجيل الواجب الصوتي 🎙️';
       statusText.innerText = 'برجاء الضغط على الزر الأحمر لبدء التسجيل';
-      placeholder.innerHTML = `
-        <svg class="w-12 h-12 mb-2 text-red-500 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
-        <span class="text-sm">الميكروفون مستعد للبدء</span>
-      `;
+      placeholder.innerHTML = '         <svg class="w-12 h-12 mb-2 text-red-500 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>         <span class="text-sm">الميكروفون مستعد للبدء</span>       ';
       
       navigator.mediaDevices.getUserMedia({ audio: true, video: false })
       .then(stream => {
@@ -157,7 +154,83 @@
       
       // إضافة شريط ذكي وتوقيع مائي ببيانات الطالب وتوقيت الإرسال تلقائياً على الصورة
       try {
-        const bannerHeight = Math.max(45    // 3. Audio Recording Handlers
+        const bannerHeight = Math.max(45, Math.floor(canvas.height * 0.10));
+        const fontSize = Math.max(14, Math.floor(bannerHeight * 0.35));
+        
+        // رسم شريط خلفية داكن شبه شفاف في أسفل الصورة
+        context.fillStyle = "rgba(0, 0, 0, 0.65)";
+        context.fillRect(0, canvas.height - bannerHeight, canvas.width, bannerHeight);
+        
+        // إعدادات الخط والاتجاه العربي
+        context.fillStyle = "#FFFFFF";
+        context.font = "bold " + fontSize + "px 'Cairo', 'Inter', system-ui, -apple-system, sans-serif";
+        context.textAlign = "right";
+        context.textBaseline = "middle";
+        context.direction = "rtl";
+        
+        // تجهيز التوقيت بتنسيق محلي عربي جميل
+        let dateTimeStr = "";
+        try {
+          dateTimeStr = new Date().toLocaleString('ar-EG', {
+            year: 'numeric',
+            month: 'numeric',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+        } catch (e) {
+          dateTimeStr = new Date().toISOString().replace('T', ' ').slice(0, 16);
+        }
+        
+        // جلب قيم حقيقية وتنظيفها تماماً من أي نصوص مشوهة أو فارغة
+        let cleanUser = username ? String(username).trim() : '';
+        if (cleanUser === 'undefined' || cleanUser === 'null' || cleanUser === 'طالب') {
+          cleanUser = '';
+        }
+        let cleanSheet = sheetNumber ? String(sheetNumber).trim() : '';
+        if (cleanSheet === 'undefined' || cleanSheet === 'null' || cleanSheet === '1') {
+          cleanSheet = '';
+        }
+        let cleanWord = word ? String(word).trim() : '';
+        if (cleanWord === 'undefined' || cleanWord === 'null' || cleanWord === 'word') {
+          cleanWord = '';
+        }
+        
+        // بناء النص التوقيعي بشكل ديناميكي أنيق ومطابق لتسلسل اسم الملف
+        // (الاسم مباشرة يليه رقم الطالب/الشيت يليه الدرس يليه التاريخ)
+        let overlayParts = [];
+        if (cleanUser) overlayParts.push(cleanUser);
+        if (cleanSheet) overlayParts.push(cleanSheet);
+        if (cleanWord) overlayParts.push(cleanWord);
+        overlayParts.push(dateTimeStr);
+        
+        const overlayText = overlayParts.join(" - ");
+        
+        // طباعة النص داخل الشريط مع هامش آمن من اليمين
+        context.fillText(overlayText, canvas.width - 20, canvas.height - (bannerHeight / 2));
+      } catch (err) {
+        console.error("فشل دمج النص المائي بالصورة:", err);
+      }
+      
+      const base64 = canvas.toDataURL('image/jpeg', 0.85); // base64 representation
+      
+      // Send back to the parent window
+      window.opener.postMessage({
+        type: 'MEDIA_CAPTURED',
+        mediaType: 'image',
+        base64: base64.split(',')[1], // raw base64 without prefix
+        mimeType: 'image/jpeg',
+        word: word,
+        username: username,
+        sheetNumber: sheetNumber
+      }, '*');
+
+      statusText.innerText = 'تم التقاط الصورة بنجاح! جاري الإغلاق...';
+      stopAllMedia();
+      setTimeout(() => window.close(), 1000);
+    };
+
+    // 3. Audio Recording Handlers
     recordBtn.onclick = () => {
       audioChunks = [];
       let options = {};
@@ -220,69 +293,6 @@
       seconds = 0;
       timerSec.innerText = '00';
       timerInterval = setInterval(() => {
-        seconds++;
-        timerSec.innerText = seconds < 10 ? '0' + seconds : seconds;
-      }, 1000);
-    };�رغة أو غير مرسلة
-  var userVal = username;
-  var sheetVal = sheetNumber;
-  
-  if (userVal === 'undefined' || userVal === 'null' || !userVal) {
-    userVal = '';
-  }
-  if (sheetVal === 'undefined' || sheetVal === 'null' || !sheetVal) {
-    sheetVal = '';
-  }
-  
-  // 1. البحث في المتغيرات العامة لسكربت جوجل إذا لم ترسل مع الدالة
-  if (!userVal) {
-    if (typeof currentUsername !== 'undefined' && currentUsername) userVal = currentUsername;
-    else if (typeof username !== 'undefined' && username && typeof username !== 'function') userVal = username;
-    else if (typeof studentName !== 'undefined' && studentName) userVal = studentName;
-    else if (typeof user !== 'undefined' && user) userVal = user;
-  }
-  if (!sheetVal) {
-    if (typeof currentSheetNumber !== 'undefined' && currentSheetNumber) sheetVal = currentSheetNumber;
-    else if (typeof sheet_number !== 'undefined' && sheet_number) sheetVal = sheet_number;
-    else if (typeof sheetNumber !== 'undefined' && sheetNumber && typeof sheetNumber !== 'function') sheetVal = sheetNumber;
-    else if (typeof sheetVal !== 'undefined' && sheetVal) sheetVal = sheetVal;
-  }
-  
-  // 2. البحث في عناصر الصفحة (Inputs) كخطوة احتياطية ثانية
-  if (!userVal) {
-    var userEl = document.getElementById('username') || 
-                 document.getElementById('currentUsername') || 
-                 document.getElementById('studentName') || 
-                 document.querySelector('[name="username"]') || 
-                 document.querySelector('[name="studentName"]');
-    if (userEl) userVal = userEl.value || userEl.innerText || userEl.textContent;
-  }
-  if (!sheetVal) {
-    var sheetEl = document.getElementById('sheetNumber') || 
-                  document.getElementById('sheet_number') || 
-                  document.getElementById('currentSheetNumber') || 
-                  document.querySelector('[name="sheetNumber"]') || 
-                  document.querySelector('[name="sheet_number"]');
-    if (sheetEl) sheetVal = sheetEl.value || sheetEl.innerText || sheetEl.textContent;
-  }
-  
-  // 3. تنظيف المسافات وحالة الأحرف
-  userVal = userVal ? String(userVal).trim() : 'طالب';
-  sheetVal = sheetVal ? String(sheetVal).trim() : '1';
-
-  // 4. رابط صفحة الميكروفون التي رفعتها على GitHub Pages
-  var githubPagesUrl = "https://YOUR_GITHUB_USERNAME.github.io/YOUR_REPO_NAME/?mode=mic" +
-                       "&word=" + encodeURIComponent(word || 'واجب') +
-                       "&username=" + encodeURIComponent(userVal) +
-                       "&sheetNumber=" + encodeURIComponent(sheetVal);
-  
-  // 5. فتح النافذة المنبثقة
-  var popup = window.open(githubPagesUrl, "Capture", "width=500,height=650,left=100,top=100");
-  
-  if (!popup || popup.closed || typeof popup.closed == 'undefined') { 
-    alert("⚠️ برجاء تفعيل السماح بالنوافذ المنبثقة (Popups) في متصفحك أولاً لتشغيل الميكروفون!");
-  }
-}   timerInterval = setInterval(() => {
         seconds++;
         timerSec.innerText = seconds < 10 ? '0' + seconds : seconds;
       }, 1000);
