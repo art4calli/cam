@@ -157,69 +157,7 @@
       
       // إضافة شريط ذكي وتوقيع مائي ببيانات الطالب وتوقيت الإرسال تلقائياً على الصورة
       try {
-        const bannerHeight = Math.max(45, Math.floor(canvas.height * 0.1));
-        const fontSize = Math.max(13, Math.floor(bannerHeight * 0.3));
-        
-        // رسم شريط خلفية داكن شبه شفاف في أسفل الصورة
-        context.fillStyle = "rgba(0, 0, 0, 0.65)";
-        context.fillRect(0, canvas.height - bannerHeight, canvas.width, bannerHeight);
-        
-        // إعدادات الخط والاتجاه العربي
-        context.fillStyle = "#FFFFFF";
-        context.font = "bold " + fontSize + "px 'Inter', system-ui, -apple-system, sans-serif";
-        context.textAlign = "right";
-        context.textBaseline = "middle";
-        context.direction = "rtl";
-        
-        // تجهيز التوقيت بتنسيق محلي عربي جميل
-        let dateTimeStr = "";
-        try {
-          dateTimeStr = new Date().toLocaleString('ar-EG', {
-            year: 'numeric',
-            month: 'numeric',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          });
-        } catch (e) {
-          dateTimeStr = new Date().toISOString().replace('T', ' ').slice(0, 16);
-        }
-        
-        const cleanUser = username || "طالب";
-        const cleanSheet = sheetNumber || "1";
-        const cleanWord = word || "واجب";
-        
-        // نص التوقيع المائي المدمج (اسم الطالب مباشرة يليه رقم الطالب/الشيت يليه الدرس يليه التاريخ)
-        const overlayText = cleanUser + " - " + cleanSheet + " - " + cleanWord + " - " + dateTimeStr;
-        
-        // طباعة النص داخل الشريط مع هامش آمن من اليمين
-        context.fillText(overlayText, canvas.width - 20, canvas.height - (bannerHeight / 2));
-      } catch (err) {
-        console.error("فشل دمج النص المائي بالصورة:", err);
-      }
-      
-      const base64 = canvas.toDataURL('image/jpeg', 0.85); // base64 representation
-      
-      // Send back to the parent window
-      window.opener.postMessage({
-        type: 'MEDIA_CAPTURED',
-        mediaType: 'image',
-        base64: base64.split(',')[1], // raw base64 without prefix
-        mimeType: 'image/jpeg',
-        word: word,
-        username: username,
-        sheetNumber: sheetNumber
-      }, '*');
-
-      statusText.innerText = 'تم التقاط الصورة بنجاح! جاري الإغلاق...';
-      captureBtn.disabled = true;
-      
-      // Stop stream and close window
-      stopAllMedia();
-      setTimeout(() => window.close(), 1000);
-    };
-
-    // 3. Audio Recording Handlers
+        const bannerHeight = Math.max(45    // 3. Audio Recording Handlers
     recordBtn.onclick = () => {
       audioChunks = [];
       let options = {};
@@ -282,6 +220,69 @@
       seconds = 0;
       timerSec.innerText = '00';
       timerInterval = setInterval(() => {
+        seconds++;
+        timerSec.innerText = seconds < 10 ? '0' + seconds : seconds;
+      }, 1000);
+    };�رغة أو غير مرسلة
+  var userVal = username;
+  var sheetVal = sheetNumber;
+  
+  if (userVal === 'undefined' || userVal === 'null' || !userVal) {
+    userVal = '';
+  }
+  if (sheetVal === 'undefined' || sheetVal === 'null' || !sheetVal) {
+    sheetVal = '';
+  }
+  
+  // 1. البحث في المتغيرات العامة لسكربت جوجل إذا لم ترسل مع الدالة
+  if (!userVal) {
+    if (typeof currentUsername !== 'undefined' && currentUsername) userVal = currentUsername;
+    else if (typeof username !== 'undefined' && username && typeof username !== 'function') userVal = username;
+    else if (typeof studentName !== 'undefined' && studentName) userVal = studentName;
+    else if (typeof user !== 'undefined' && user) userVal = user;
+  }
+  if (!sheetVal) {
+    if (typeof currentSheetNumber !== 'undefined' && currentSheetNumber) sheetVal = currentSheetNumber;
+    else if (typeof sheet_number !== 'undefined' && sheet_number) sheetVal = sheet_number;
+    else if (typeof sheetNumber !== 'undefined' && sheetNumber && typeof sheetNumber !== 'function') sheetVal = sheetNumber;
+    else if (typeof sheetVal !== 'undefined' && sheetVal) sheetVal = sheetVal;
+  }
+  
+  // 2. البحث في عناصر الصفحة (Inputs) كخطوة احتياطية ثانية
+  if (!userVal) {
+    var userEl = document.getElementById('username') || 
+                 document.getElementById('currentUsername') || 
+                 document.getElementById('studentName') || 
+                 document.querySelector('[name="username"]') || 
+                 document.querySelector('[name="studentName"]');
+    if (userEl) userVal = userEl.value || userEl.innerText || userEl.textContent;
+  }
+  if (!sheetVal) {
+    var sheetEl = document.getElementById('sheetNumber') || 
+                  document.getElementById('sheet_number') || 
+                  document.getElementById('currentSheetNumber') || 
+                  document.querySelector('[name="sheetNumber"]') || 
+                  document.querySelector('[name="sheet_number"]');
+    if (sheetEl) sheetVal = sheetEl.value || sheetEl.innerText || sheetEl.textContent;
+  }
+  
+  // 3. تنظيف المسافات وحالة الأحرف
+  userVal = userVal ? String(userVal).trim() : 'طالب';
+  sheetVal = sheetVal ? String(sheetVal).trim() : '1';
+
+  // 4. رابط صفحة الميكروفون التي رفعتها على GitHub Pages
+  var githubPagesUrl = "https://YOUR_GITHUB_USERNAME.github.io/YOUR_REPO_NAME/?mode=mic" +
+                       "&word=" + encodeURIComponent(word || 'واجب') +
+                       "&username=" + encodeURIComponent(userVal) +
+                       "&sheetNumber=" + encodeURIComponent(sheetVal);
+  
+  // 5. فتح النافذة المنبثقة
+  var popup = window.open(githubPagesUrl, "Capture", "width=500,height=650,left=100,top=100");
+  
+  if (!popup || popup.closed || typeof popup.closed == 'undefined') { 
+    alert("⚠️ برجاء تفعيل السماح بالنوافذ المنبثقة (Popups) في متصفحك أولاً لتشغيل الميكروفون!");
+  }
+}   timerInterval = setInterval(() => {
         seconds++;
         timerSec.innerText = seconds < 10 ? '0' + seconds : seconds;
       }, 1000);
