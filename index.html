@@ -65,7 +65,7 @@
         <div id="recordingTimer" class="text-center text-red-500 font-bold hidden text-sm">
           جاري التسجيل: <span id="timerSec">00</span> ثانية
         </div>
-        <button id="stopRecordBtn" class="w-full bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 font-bold py-3.5 px-4 rounded-xl transition-all hidden flex items-center justify-center gap-2">
+        <button id="stopRecordBtn" class="w-full bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-955 font-bold py-3.5 px-4 rounded-xl transition-all hidden flex items-center justify-center gap-2">
           <span>إيقاف التسجيل وإرسال ⏹️</span>
         </button>
       </div>
@@ -129,7 +129,10 @@
     } else {
       titleText.innerText = 'تسجيل الواجب الصوتي 🎙️';
       statusText.innerText = 'برجاء الضغط على الزر الأحمر لبدء التسجيل';
-      placeholder.innerHTML = '         <svg class="w-12 h-12 mb-2 text-red-500 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>         <span class="text-sm">الميكروفون مستعد للبدء</span>       ';
+      placeholder.innerHTML = `
+        <svg class="w-12 h-12 mb-2 text-red-500 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+        <span class="text-sm">الميكروفون مستعد للبدء</span>
+      `;
       
       navigator.mediaDevices.getUserMedia({ audio: true, video: false })
       .then(stream => {
@@ -184,11 +187,11 @@
         
         // جلب قيم حقيقية وتنظيفها تماماً من أي نصوص مشوهة أو فارغة
         let cleanUser = username ? String(username).trim() : '';
-        if (cleanUser === 'undefined' || cleanUser === 'null' || cleanUser === 'طالب') {
+        if (cleanUser === 'undefined' || cleanUser === 'null') {
           cleanUser = '';
         }
         let cleanSheet = sheetNumber ? String(sheetNumber).trim() : '';
-        if (cleanSheet === 'undefined' || cleanSheet === 'null' || cleanSheet === '1') {
+        if (cleanSheet === 'undefined' || cleanSheet === 'null') {
           cleanSheet = '';
         }
         let cleanWord = word ? String(word).trim() : '';
@@ -200,8 +203,8 @@
         // (الاسم مباشرة يليه رقم الطالب/الشيت يليه الدرس يليه التاريخ)
         let overlayParts = [];
         if (cleanUser) overlayParts.push(cleanUser);
-        if (cleanSheet) overlayParts.push(cleanSheet);
-        if (cleanWord) overlayParts.push(cleanWord);
+        if (cleanSheet) overlayParts.push("شيت " + cleanSheet);
+        if (cleanWord) overlayParts.push("درس " + cleanWord);
         overlayParts.push(dateTimeStr);
         
         const overlayText = overlayParts.join(" - ");
@@ -237,27 +240,26 @@
       if (typeof MediaRecorder.isTypeSupported === 'function') {
         if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
           options = { mimeType: 'audio/webm;codecs=opus' };
-        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
-          options = { mimeType: 'audio/webm' };
-        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
-          options = { mimeType: 'audio/mp4' };
-        } else if (MediaRecorder.isTypeSupported('audio/aac')) {
-          options = { mimeType: 'audio/aac' };
+        } else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
+          options = { mimeType: 'audio/ogg;codecs=opus' };
         }
       }
+      
       try {
         mediaRecorder = new MediaRecorder(localStream, options);
       } catch (e) {
+        console.error("MediaRecorder fallback:", e);
         mediaRecorder = new MediaRecorder(localStream);
       }
-
+      
       mediaRecorder.ondataavailable = e => {
-        if (e.data.size > 0) audioChunks.push(e.data);
+        if (e.data && e.data.size > 0) {
+          audioChunks.push(e.data);
+        }
       };
       
       mediaRecorder.onstop = () => {
-        const mimeType = mediaRecorder.mimeType || 'audio/webm';
-        const audioBlob = new Blob(audioChunks, { type: mimeType });
+        const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
         const reader = new FileReader();
         reader.readAsDataURL(audioBlob);
         reader.onloadend = () => {
@@ -266,47 +268,44 @@
           window.opener.postMessage({
             type: 'MEDIA_CAPTURED',
             mediaType: 'audio',
-            base64: base64.split(',')[1], // raw base64 without prefix
-            mimeType: mimeType,
+            base64: base64.split(',')[1],
+            mimeType: mediaRecorder.mimeType || 'audio/webm',
             word: word,
             username: username,
             sheetNumber: sheetNumber
           }, '*');
-
+          
           statusText.innerText = 'تم تسجيل الصوت بنجاح! جاري الإغلاق...';
           stopAllMedia();
           setTimeout(() => window.close(), 1000);
         };
       };
-
-      mediaRecorder.start();
       
-      // UI Updates
-      recordBtn.classList.add('hidden');
-      stopRecordBtn.classList.remove('hidden');
-      recordingTimer.classList.remove('hidden');
-      audioWave.classList.remove('hidden');
-      placeholder.classList.add('hidden');
-      statusText.innerText = 'جاري التسجيل الآن... تحدث بصوت واضح';
-
-      // Start Timer
+      mediaRecorder.start();
       seconds = 0;
       timerSec.innerText = '00';
+      recordingTimer.classList.remove('hidden');
+      recordBtn.classList.add('hidden');
+      stopRecordBtn.classList.remove('hidden');
+      
       timerInterval = setInterval(() => {
         seconds++;
         timerSec.innerText = seconds < 10 ? '0' + seconds : seconds;
+        if (seconds >= 120) { // limit 2 mins
+          stopRecordBtn.click();
+        }
       }, 1000);
     };
-
+    
     stopRecordBtn.onclick = () => {
       if (mediaRecorder && mediaRecorder.state !== 'inactive') {
         mediaRecorder.stop();
-        clearInterval(timerInterval);
-        stopRecordBtn.disabled = true;
-        statusText.innerText = 'جاري ضغط ومعالجة الصوت...';
       }
+      clearInterval(timerInterval);
+      recordingTimer.classList.add('hidden');
+      stopRecordBtn.classList.add('hidden');
     };
-
+    
     function stopAllMedia() {
       if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
