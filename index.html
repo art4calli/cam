@@ -20,7 +20,7 @@
     </div>
 
     <!-- Active Area -->
-    <div class="relative bg-slate-950 rounded-2xl overflow-hidden aspect-video flex items-center justify-center border border-slate-900 mb-4">
+    <div class="relative bg-slate-950 rounded-2xl overflow-hidden aspect-square max-w-xs mx-auto flex items-center justify-center border border-slate-900 mb-4">
       <!-- Camera View -->
       <video id="video" autoplay playsinline class="w-full h-full object-cover hidden"></video>
       
@@ -65,7 +65,7 @@
         <div id="recordingTimer" class="text-center text-red-500 font-bold hidden text-sm">
           جاري التسجيل: <span id="timerSec">00</span> ثانية
         </div>
-        <button id="stopRecordBtn" class="w-full bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-955 font-bold py-3.5 px-4 rounded-xl transition-all hidden flex items-center justify-center gap-2">
+        <button id="stopRecordBtn" class="w-full bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 font-bold py-3.5 px-4 rounded-xl transition-all hidden flex items-center justify-center gap-2">
           <span>إيقاف التسجيل وإرسال ⏹️</span>
         </button>
       </div>
@@ -129,10 +129,7 @@
     } else {
       titleText.innerText = 'تسجيل الواجب الصوتي 🎙️';
       statusText.innerText = 'برجاء الضغط على الزر الأحمر لبدء التسجيل';
-      placeholder.innerHTML = `
-        <svg class="w-12 h-12 mb-2 text-red-500 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
-        <span class="text-sm">الميكروفون مستعد للبدء</span>
-      `;
+      placeholder.innerHTML = '         <svg class="w-12 h-12 mb-2 text-red-500 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>         <span class="text-sm">الميكروفون مستعد للبدء</span>       ';
       
       navigator.mediaDevices.getUserMedia({ audio: true, video: false })
       .then(stream => {
@@ -151,14 +148,22 @@
     // 2. Capture Image Handler
     captureBtn.onclick = () => {
       const context = canvas.getContext('2d');
-      canvas.width = video.videoWidth || 640;
-      canvas.height = video.videoHeight || 480;
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const videoWidth = video.videoWidth || 640;
+      const videoHeight = video.videoHeight || 480;
+      const size = Math.min(videoWidth, videoHeight);
+      
+      // Calculate coordinates to crop the center square of the video stream
+      const sx = (videoWidth - size) / 2;
+      const sy = (videoHeight - size) / 2;
+      
+      canvas.width = size;
+      canvas.height = size;
+      context.drawImage(video, sx, sy, size, size, 0, 0, size, size);
       
       // إضافة شريط ذكي وتوقيع مائي ببيانات الطالب وتوقيت الإرسال تلقائياً على الصورة
       try {
-        const bannerHeight = Math.max(45, Math.floor(canvas.height * 0.10));
-        const fontSize = Math.max(14, Math.floor(bannerHeight * 0.35));
+        const bannerHeight = Math.max(25, Math.floor(canvas.height * 0.06));
+        const fontSize = Math.max(9, Math.floor(bannerHeight * 0.30));
         
         // رسم شريط خلفية داكن شبه شفاف في أسفل الصورة
         context.fillStyle = "rgba(0, 0, 0, 0.65)";
