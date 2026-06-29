@@ -24,6 +24,9 @@
       <!-- Camera View -->
       <video id="video" autoplay playsinline class="w-full h-full object-cover hidden"></video>
       
+      <!-- Captured Image Preview (المعاينة الجديدة) -->
+      <img id="imagePreview" class="w-full h-full object-cover hidden" alt="معاينة الصورة">
+      
       <!-- Audio Wave/Visualizer -->
       <div id="audioWave" class="hidden flex items-center gap-1.5 h-16">
         <span class="w-2.5 h-6 bg-red-500 rounded-full animate-bounce"></span>
@@ -47,14 +50,30 @@
 
     <!-- Controls -->
     <div class="space-y-3">
-      <!-- Camera capture button -->
-      <button id="captureBtn" class="w-full bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-955 font-bold py-3.5 px-4 rounded-xl transition-all hidden flex items-center justify-center gap-2">
+      <!-- Camera capture button (التقاط فقط) -->
+      <button id="captureBtn" class="w-full bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 font-bold py-3.5 px-4 rounded-xl transition-all hidden flex items-center justify-center gap-2">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
         </svg>
-        <span>التقاط وإرسال الصورة 📸</span>
+        <span>التقاط الصورة 📸</span>
       </button>
+
+      <!-- Image Preview Controls (أزرار الموافقة أو إعادة المحاولة المضافة حديثاً) -->
+      <div id="previewControls" class="hidden space-y-3">
+        <button id="acceptBtn" class="w-full bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-bold py-3.5 px-4 rounded-xl transition-all flex items-center justify-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+          </svg>
+          <span>موافق، إرسال الصورة 🟢</span>
+        </button>
+        <button id="retakeBtn" class="w-full bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold py-3.5 px-4 rounded-xl transition-all flex items-center justify-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H18.5"></path>
+          </svg>
+          <span>إعادة تصوير 🔄</span>
+        </button>
+      </div>
 
       <!-- Mic Controls -->
       <div id="micControls" class="hidden space-y-3">
@@ -87,11 +106,16 @@
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
     const placeholder = document.getElementById('placeholder');
+    const imagePreview = document.getElementById('imagePreview');
     const audioWave = document.getElementById('audioWave');
     const statusText = document.getElementById('status');
     const titleText = document.getElementById('title');
     
     const captureBtn = document.getElementById('captureBtn');
+    const previewControls = document.getElementById('previewControls');
+    const acceptBtn = document.getElementById('acceptBtn');
+    const retakeBtn = document.getElementById('retakeBtn');
+    
     const micControls = document.getElementById('micControls');
     const recordBtn = document.getElementById('recordBtn');
     const stopRecordBtn = document.getElementById('stopRecordBtn');
@@ -103,6 +127,7 @@
     let audioChunks = [];
     let timerInterval = null;
     let seconds = 0;
+    let capturedBase64 = null; // لتخزين كود الصورة مؤقتاً
 
     // 1. Initialize Media
     if (mode === 'camera') {
@@ -205,7 +230,6 @@
         }
         
         // بناء النص التوقيعي بشكل ديناميكي أنيق ومطابق لتسلسل اسم الملف
-        // (الاسم مباشرة يليه رقم الطالب/الشيت يليه الدرس يليه التاريخ)
         let overlayParts = [];
         if (cleanUser) overlayParts.push(cleanUser);
         if (cleanSheet) overlayParts.push("شيت " + cleanSheet);
@@ -221,19 +245,46 @@
       }
       
       const base64 = canvas.toDataURL('image/jpeg', 0.85); // base64 representation
+      capturedBase64 = base64.split(',')[1]; // استخلاص كود base64 الصافي
+
+      // إخفاء الكاميرا وعرض الصورة الملتقطة للمعاينة
+      video.classList.add('hidden');
+      imagePreview.src = base64;
+      imagePreview.classList.remove('hidden');
+
+      // تبديل الأزرار لإظهار أزرار المعاينة
+      captureBtn.classList.add('hidden');
+      previewControls.classList.remove('hidden');
+      statusText.innerText = 'هل الصورة واضحة ومناسبة؟ اضغط إرسال، أو إعادة لتصوير لقطة جديدة.';
+    };
+
+    // معالجة زر إعادة التصوير
+    retakeBtn.onclick = () => {
+      capturedBase64 = null;
+      imagePreview.classList.add('hidden');
+      video.classList.remove('hidden');
+      previewControls.classList.add('hidden');
+      captureBtn.classList.remove('hidden');
+      statusText.innerText = 'برجاء الابتسام للكاميرا والتقاط الصورة';
+    };
+
+    // معالجة زر الإرسال والموافقة
+    acceptBtn.onclick = () => {
+      if (!capturedBase64) return;
       
-      // Send back to the parent window
+      // إرسال كود الصورة للنافذة الأم في تطبيقك
       window.opener.postMessage({
         type: 'MEDIA_CAPTURED',
         mediaType: 'image',
-        base64: base64.split(',')[1], // raw base64 without prefix
+        base64: capturedBase64,
         mimeType: 'image/jpeg',
         word: word,
         username: username,
         sheetNumber: sheetNumber
       }, '*');
 
-      statusText.innerText = 'تم التقاط الصورة بنجاح! جاري الإغلاق...';
+      statusText.innerText = 'تم إرسال الصورة بنجاح! جاري الإغلاق...';
+      previewControls.classList.add('hidden');
       stopAllMedia();
       setTimeout(() => window.close(), 1000);
     };
